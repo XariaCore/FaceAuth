@@ -13,7 +13,6 @@ std::string targetName = "";
 std::string lastResult = "";
 
 int main() {
-    // Preload AI Models and initialize services
     FaceDetector detector(Config::DETECTOR_PATH, Config::CONF_THRESHOLD);
     SpoofDetector spoof(Config::SPOOF_PATH, Config::SPOOF_THRESHOLD);
     FaceMemory memory(Config::RECOG_PATH, Config::DB_PATH, Config::RECOG_THRESHOLD);
@@ -24,7 +23,6 @@ int main() {
         return -1;
     }
 
-    // Start socket listener thread for handling incoming CLI commands
     std::thread s_thread(&SocketServer::listenAndAccept, &server, std::ref(memory), std::ref(currentState), std::ref(targetName), std::ref(lastResult));
     s_thread.detach();
 
@@ -39,7 +37,6 @@ int main() {
 
     while (true) {
         if (currentState != STATE_IDLE) {
-            // Camera Resource Management
             if (!cap.isOpened()) {
                 cap.open(0);
                 timer_started = false;
@@ -55,7 +52,6 @@ int main() {
 
             FaceData face = detector.detect(frame);
 
-            // Logic starts upon the first face detection
             if (face.score > Config::CONF_THRESHOLD) {
 
                 if (!timer_started) {
@@ -64,7 +60,6 @@ int main() {
                     timer_started = true;
                 }
 
-                // Anti-spoofing verification
                 if (spoof.isReal(frame, face.bbox)) {
                     consecutiveReal++;
                     if (consecutiveReal >= Config::REQUIRED_FRAMES) {
@@ -87,7 +82,6 @@ int main() {
                 consecutiveReal = 0;
             }
 
-            // Operation Timeout Control
             if (timer_started) {
                 auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
                 if (elapsed > Config::SCAN_TIMEOUT_MS) {
@@ -98,7 +92,6 @@ int main() {
             }
 
         } else {
-            // IDLE: Release resources and wait for next request
             if (cap.isOpened()) {
                 cap.release();
             }

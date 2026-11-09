@@ -8,8 +8,7 @@ FaceDetector::FaceDetector(const std::string& modelPath, float confThreshold)
       memory_info(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault))
 {
     Ort::AllocatorWithDefaultOptions allocator;
-    
-    // Initialize input/output names for the ONNX session
+
     auto input_name_ptr = session.GetInputNameAllocated(0, allocator);
     input_names_str.push_back(input_name_ptr.get());
     input_names = {input_names_str[0].c_str()};
@@ -25,7 +24,6 @@ FaceDetector::FaceDetector(const std::string& modelPath, float confThreshold)
 FaceData FaceDetector::detect(const cv::Mat& frame) {
     if (frame.empty()) return {cv::Rect(), 0.0f};
 
-    // 1. Rescale image while maintaining aspect ratio
     cv::Mat det_image = cv::Mat::zeros(inputSize, CV_8UC3);
     float ratio = std::min((float)inputSize.width / frame.cols, (float)inputSize.height / frame.rows);
     int new_w = frame.cols * ratio;
@@ -35,13 +33,11 @@ FaceData FaceDetector::detect(const cv::Mat& frame) {
     cv::resize(frame, resized, cv::Size(new_w, new_h));
     resized.copyTo(det_image(cv::Rect(0, 0, new_w, new_h)));
 
-    // 2. Inference and Tensor Preparation
     cv::Mat blob = cv::dnn::blobFromImage(det_image, 1.0/128.0, inputSize, cv::Scalar(127.5, 127.5, 127.5), true);
     std::vector<int64_t> input_shape = {1, 3, 640, 640};
     auto input_tensor = Ort::Value::CreateTensor<float>(memory_info, (float*)blob.data, blob.total(), input_shape.data(), input_shape.size());
     auto outputs = session.Run(Ort::RunOptions{nullptr}, input_names.data(), &input_tensor, 1, output_names.data(), output_names.size());
 
-    // 3. SCRFD Decoding logic for face coordinates
     FaceData best_face = {cv::Rect(), 0.0f};
 
     for (int i = 0; i < 3; i++) {
@@ -60,7 +56,6 @@ FaceData FaceDetector::detect(const cv::Mat& frame) {
                 float anchor_x = (anchor_idx % cols) * stride;
                 float anchor_y = (anchor_idx / cols) * stride;
 
-                // SCRFD Formula: Decode relative distance into global coordinates based on ratio
                 float x1 = (anchor_x - bboxes[idx*4] * stride) / ratio;
                 float y1 = (anchor_y - bboxes[idx*4+1] * stride) / ratio;
                 float x2 = (anchor_x + bboxes[idx*4+2] * stride) / ratio;

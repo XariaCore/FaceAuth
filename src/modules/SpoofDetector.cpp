@@ -14,8 +14,6 @@ SpoofDetector::SpoofDetector(const std::string& modelPath, float threshold)
 bool SpoofDetector::isReal(const cv::Mat& frame, const cv::Rect& bbox) {
     if (frame.empty() || bbox.width <= 0 || bbox.height <= 0) return false;
 
-    // --- 1. COORDINATE CALCULATION ---
-    // Expand the bounding box by a factor of 2.7 to include background context
     int w_box = bbox.width;
     int h_box = bbox.height;
     int cx = bbox.x + w_box / 2;
@@ -32,7 +30,6 @@ bool SpoofDetector::isReal(const cv::Mat& frame, const cv::Rect& bbox) {
     cv::Mat crop = frame(cv::Range(y1_new, y2_new), cv::Range(x1_new, x2_new)).clone();
     if (crop.empty()) return false;
 
-    // --- 2. PRE-PROCESSING (NCHW Layout) ---
     cv::Mat resized;
     cv::resize(crop, resized, cv::Size(80, 80));
     cv::cvtColor(resized, resized, cv::COLOR_BGR2RGB);
@@ -41,13 +38,11 @@ bool SpoofDetector::isReal(const cv::Mat& frame, const cv::Rect& bbox) {
     for (int c = 0; c < 3; ++c) {
         for (int h = 0; h < 80; ++h) {
             for (int w = 0; w < 80; ++w) {
-                // Manual transformation to NCHW format
                 input_tensor_values[c * 80 * 80 + h * 80 + w] = static_cast<float>(resized.at<cv::Vec3b>(h, w)[c]);
             }
         }
     }
 
-    // --- 3. INFERENCE ---
     std::vector<int64_t> input_shape = {1, 3, 80, 80};
     Ort::AllocatorWithDefaultOptions allocator;
     auto in_name = session.GetInputNameAllocated(0, allocator);
@@ -63,13 +58,10 @@ bool SpoofDetector::isReal(const cv::Mat& frame, const cv::Rect& bbox) {
     auto outputs = session.Run(Ort::RunOptions{nullptr}, in_names, &input_tensor, 1, out_names, 1);
     float* scores = outputs[0].GetTensorMutableData<float>();
 
-    // --- 4. 3-CLASS SOFTMAX CALCULATION ---
-    // Class Indices: [Fake, Real, Undefined]
     float s0 = scores[0];
-    float s1 = scores[1]; // Index 1 represents 'Real'
+    float s1 = scores[1];
     float s2 = scores[2];
 
-    // Numerically stable Softmax using max logit subtraction
     float max_logit = std::max({s0, s1, s2});
     float exp0 = std::exp(s0 - max_logit);
     float exp1 = std::exp(s1 - max_logit);
@@ -78,7 +70,6 @@ bool SpoofDetector::isReal(const cv::Mat& frame, const cv::Rect& bbox) {
 
     float real_score = exp1 / sum_exp;
 
-    // Debug output for score monitoring
     std::cout << "--------------------------------------" << std::endl;
     std::cout << "[DEBUG] Logits: [" << std::fixed << std::setprecision(6)
               << s0 << ", " << s1 << ", " << s2 << "]" << std::endl;

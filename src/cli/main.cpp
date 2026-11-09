@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <string>
 #include <cstring>
-#include "../include/Config.h" 
+#include "../include/Config.h"
 
 std::string getJsonValue(const std::string& json, const std::string& key) {
     std::string searchKey = "\"" + key + "\":";
@@ -27,8 +27,7 @@ std::string sendCommand(const std::string& cmd) {
 
     memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sun_family = AF_UNIX;
-    
-    // Using socket path defined in Config namespace
+
     strncpy(serv_addr.sun_path, Config::SOCKET_PATH.c_str(), sizeof(serv_addr.sun_path) - 1);
 
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
@@ -36,10 +35,9 @@ std::string sendCommand(const std::string& cmd) {
     }
 
     send(sock, cmd.c_str(), cmd.length(), 0);
-    
-    // Explicitly ignoring return value of read
+
     (void)read(sock, buffer, 1024);
-    
+
     close(sock);
     return std::string(buffer);
 }
@@ -61,7 +59,7 @@ int main(int argc, char const *argv[]) {
         if (argc < 3) { std::cout << "[ERROR] Please provide a username.\n"; return 1; }
         std::cout << ">>> Sending enrollment request for: " << argv[2] << "...\n";
         response = sendCommand("{\"cmd\": \"ENROLL\", \"name\": \"" + std::string(argv[2]) + "\"}");
-    } 
+    }
     else if (command == "delete") {
         if (argc < 3) { std::cout << "[ERROR] Please provide a username.\n"; return 1; }
         std::cout << ">>> Deleting user: " << argv[2] << "...\n";

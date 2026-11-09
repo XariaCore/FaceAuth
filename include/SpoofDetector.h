@@ -16,7 +16,7 @@ private:
     Ort::Env env;
     Ort::Session session;
     Ort::MemoryInfo memory_info;
-    std::vector<const char*> output_names = {"output"}; // Modelinize göre "output0" olabilir
+    std::vector<const char*> output_names = {"output"};
     cv::Size inputSize = cv::Size(80, 80);
 };
 

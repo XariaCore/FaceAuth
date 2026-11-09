@@ -15,19 +15,17 @@ FaceMemory::FaceMemory(const std::string& modelPath, const std::string& dbPath, 
 }
 
 std::vector<float> FaceMemory::getEmbedding(const cv::Mat& faceROI) {
-    // Pre-processing: (Image_RGB - 127.5) / 128.0
     cv::Mat blob = cv::dnn::blobFromImage(
         faceROI,
-        1.0 / 128.0,                     // Scale factor
-        cv::Size(112, 112),              // Target input size
-        cv::Scalar(127.5, 127.5, 127.5), // Mean subtraction
-        true,                            // SwapRB (BGR to RGB)
-        false                            // Crop
+        1.0 / 128.0,
+        cv::Size(112, 112),
+        cv::Scalar(127.5, 127.5, 127.5),
+        true,
+        false
     );
 
     std::vector<int64_t> input_shape = {1, 3, 112, 112};
 
-    // blobFromImage ensures contiguous memory; no extra copy needed
     auto input_tensor = Ort::Value::CreateTensor<float>(
         memory_info,
         (float*)blob.data,
@@ -41,7 +39,6 @@ std::vector<float> FaceMemory::getEmbedding(const cv::Mat& faceROI) {
 
     std::vector<float> emb(out_ptr, out_ptr + 512);
 
-    // L2 Normalization
     float norm = std::sqrt(std::inner_product(emb.begin(), emb.end(), emb.begin(), 0.0f));
 
     if (norm > 1e-6) {
@@ -58,7 +55,6 @@ std::pair<std::string, float> FaceMemory::verify(const cv::Mat& frame, const cv:
     std::string best_match = "Unknown";
     float max_score = 0.0f;
 
-    // Compare against the database using Cosine Similarity (Dot product of normalized vectors)
     for (auto const& [name, db_emb] : database) {
         float score = std::inner_product(curr_emb.begin(), curr_emb.end(), db_emb.begin(), 0.0f);
         if (score > max_score) {
